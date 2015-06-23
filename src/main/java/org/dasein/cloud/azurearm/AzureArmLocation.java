@@ -94,6 +94,8 @@ public class AzureArmLocation implements DataCenterServices{
     @Override
     public @Nonnull Iterable<Region> listRegions() throws InternalException, CloudException {
         HttpUriRequest httpUriRequest = new AzureArmRequestHandler(provider).get("location", null).build();
+        System.out.println(httpUriRequest.containsHeader("Authorization"));
+        System.out.println(httpUriRequest.getHeaders("Authorization")[0].getValue());
         AzureArmLocationModel result = new AzureArmRequest(provider, httpUriRequest).withJsonProcessor(AzureArmLocationModel.class).execute();
 
         final List<Region> regions = new ArrayList<Region>();

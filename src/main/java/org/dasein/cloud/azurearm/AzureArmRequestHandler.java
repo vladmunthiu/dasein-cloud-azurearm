@@ -1,12 +1,29 @@
 package org.dasein.cloud.azurearm;
 
+import com.microsoft.aad.adal4j.AuthenticationContext;
+import com.microsoft.aad.adal4j.AuthenticationResult;
+import com.microsoft.aad.adal4j.ClientCredential;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.util.EntityUtils;
 import org.dasein.cloud.ContextRequirements;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.naming.ServiceUnavailableException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Handles the various requests going to Azure Arm
@@ -44,15 +61,33 @@ public class AzureArmRequestHandler {
         requestBuilder.addHeader("Content-Type", "application/json");
     }
 
-    private void addAuth(RequestBuilder requestBuilder){
-        ContextRequirements contextRequirements = provider.getContextRequirements();
+    private void addAuth(RequestBuilder requestBuilder) {
+        AuthenticationContext context = null;
+        AuthenticationResult result = null;
+        ExecutorService service = null;
+        try {
+            String username = "";
+            String password = "";
+            String adTenantId = "";
 
-        for(ContextRequirements.Field field : contextRequirements.getConfigurableValues()){
-            field.name
+            List<ContextRequirements.Field> fields = provider.getContextRequirements().getConfigurableValues();
+            for(ContextRequirements.Field f : fields ) {
+                if(f.name.equals("username"))username = (String)provider.getContext().getConfigurationValue(f);
+                else if(f.name.equals("password"))password = (String)provider.getContext().getConfigurationValue(f);
+                else if(f.name.equals("adTenantId"))adTenantId = (String)provider.getContext().getConfigurationValue(f);
+            }
+            service = Executors.newFixedThreadPool(1);
+            context = new AuthenticationContext("https://login.windows.net/" + adTenantId + "/oauth2/token", true, service);
+            Future<AuthenticationResult> future = context.acquireToken("https://management.core.windows.net/", provider.getContext().getAccountNumber(), username, password, null);
+            result = future.get();
+            requestBuilder.addHeader("Authorization", result.getAccessToken());
+
+        } catch(Exception ex){
+            //TODO: Fix me properly
+            ex.printStackTrace();
         }
-
-        String uri = "https://login.windows.net/%s/oauth2/authorize?client_id=%s&response_type=code";
-        RequestBuilder authRequest = RequestBuilder.get();
-        requestBuilder.setUri(String.format(uri), )
+        finally {
+            service.shutdown();
+        }
     }
 }

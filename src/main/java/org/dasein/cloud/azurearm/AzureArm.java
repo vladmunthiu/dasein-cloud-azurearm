@@ -18,18 +18,19 @@
 
 package org.dasein.cloud.azurearm;
 
-import org.apache.http.config.Registry;
-import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.HttpClientConnectionManager;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.ContextRequirements;
+import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.dc.DataCenterServices;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Core cloud provider implementation for the Microsoft Azure cloud.
@@ -39,6 +40,8 @@ import javax.annotation.Nonnull;
  */
 public class AzureArm extends AbstractCloud {
     private String apiVersion = "2015-01-01";
+    public String accessToken = "";
+    public String refreshToken = "";
 
     public AzureArm(){}
 
@@ -53,37 +56,48 @@ public class AzureArm extends AbstractCloud {
         }
     }
 
-    @Nonnull
     @Override
-    public String getCloudName() {
+    public @Nonnull String getCloudName() {
         return "Azure";
     }
 
     @Override
-    public @Nonnull
-    ContextRequirements getContextRequirements() {
+    public @Nonnull ContextRequirements getContextRequirements() {
         return new ContextRequirements(
-                new ContextRequirements.Field("apiSharedKey", "AD Application Client ID", ContextRequirements.FieldType.TEXT, true),
-                new ContextRequirements.Field("apiSecretKey", "AD Tenant ID", ContextRequirements.FieldType.TEXT, true),
+                new ContextRequirements.Field("username", "Active Directory Username", ContextRequirements.FieldType.TEXT, true),
+                new ContextRequirements.Field("password", "Active Directory Password", ContextRequirements.FieldType.TEXT, true),
+                new ContextRequirements.Field("adTenantId", "Active Directory Client Application Id", ContextRequirements.FieldType.TEXT, true),
                 new ContextRequirements.Field("proxyHost", "Proxy host", ContextRequirements.FieldType.TEXT, false),
                 new ContextRequirements.Field("proxyPort", "Proxy port", ContextRequirements.FieldType.TEXT, false)
         );
     }
 
-    @Nonnull
     @Override
-    public DataCenterServices getDataCenterServices() {
+    public @Nonnull DataCenterServices getDataCenterServices() {
         return new AzureArmLocation(this);
     }
 
-    @Nonnull
     @Override
-    public String getProviderName() {
+    public @Nonnull String getProviderName() {
         return "Microsoft";
     }
 
 
     public String getAPIVersion(){
         return apiVersion;
+    }
+
+    @Override
+    public @Nullable String testContext(){
+        String tenantId = "";
+        String clientId = "";
+
+        List<ContextRequirements.Field> fields = getContextRequirements().getConfigurableValues();
+        for(ContextRequirements.Field f : fields ) {
+            if(f.name.equals("apiKeyShared"))tenantId = (String)getContext().getConfigurationValue(f);
+            else if(f.name.equals("apiKeySecret"))clientId = (String)getContext().getConfigurationValue(f);
+        }
+        //TODO: Fix me
+        return "";
     }
 }
