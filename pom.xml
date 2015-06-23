@@ -90,6 +90,12 @@
             <artifactId>joda-time</artifactId>
             <version>2.3</version>
         </dependency>
+        <dependency>
+            <groupId>com.microsoft.aad</groupId>
+            <artifactId>adal4j</artifactId>
+            <version>0.0.2</version>
+        </dependency>
+
         <!-- Provided -->
         <dependency>
             <groupId>javax.servlet</groupId>
@@ -213,36 +219,20 @@
                             <value>${endpoint}</value>
                         </property>
                         <property>
-                            <name>userName</name>
-                            <value>${user.name}</value>
-                        </property>
-                        <property>
                             <name>accountNumber</name>
                             <value>${accountNumber}</value>
                         </property>
                         <property>
-                            <name>accessPublic</name>
-                            <value>${apiSharedKey}</value>
+                            <name>username</name>
+                            <value>${username}</value>
                         </property>
                         <property>
-                            <name>accessPrivate</name>
-                            <value>${apiSecretKey}</value>
+                            <name>password</name>
+                            <value>${password}</value>
                         </property>
                         <property>
-                            <name>apiSharedKey</name>
-                            <value>${apiSharedKey}</value>
-                        </property>
-                        <property>
-                            <name>apiSecretKey</name>
-                            <value>${apiSecretKey}</value>
-                        </property>
-                        <property>
-                            <name>apiKeyShared</name>
-                            <value>${x509CertFile}</value>
-                        </property>
-                        <property>
-                            <name>apiKeySecret</name>
-                            <value>${x509KeyFile}</value>
+                            <name>adTenantId</name>
+                            <value>${adTenantId}</value>
                         </property>
                         <property>
                             <name>cloudName</name>
@@ -289,9 +279,9 @@
                             <value>${proxyPort}</value>
                         </property>
                     </systemProperties>
-                    <excludes>
-                        <exclude>**/TestSuite.java</exclude>
-                    </excludes>
+                    <includes>
+                        <include>**/TestSuite.java</include>
+                    </includes>
                 </configuration>
             </plugin>
             <plugin>
