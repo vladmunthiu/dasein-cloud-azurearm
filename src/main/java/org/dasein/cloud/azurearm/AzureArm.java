@@ -66,7 +66,8 @@ public class AzureArm extends AbstractCloud {
         return new ContextRequirements(
                 new ContextRequirements.Field("username", "Active Directory Username", ContextRequirements.FieldType.TEXT, true),
                 new ContextRequirements.Field("password", "Active Directory Password", ContextRequirements.FieldType.TEXT, true),
-                new ContextRequirements.Field("adTenantId", "Active Directory Client Application Id", ContextRequirements.FieldType.TEXT, true),
+                new ContextRequirements.Field("adTenantId", "Active Directory Client Application Authentication Endpoint Id", ContextRequirements.FieldType.TEXT, true),
+                new ContextRequirements.Field("applicationId", "Active Directory Client Application Id", ContextRequirements.FieldType.TEXT, true),
                 new ContextRequirements.Field("proxyHost", "Proxy host", ContextRequirements.FieldType.TEXT, false),
                 new ContextRequirements.Field("proxyPort", "Proxy port", ContextRequirements.FieldType.TEXT, false)
         );

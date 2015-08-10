@@ -235,6 +235,10 @@
                             <value>${adTenantId}</value>
                         </property>
                         <property>
+                            <name>applicationId</name>
+                            <value>${applicationId}</value>
+                        </property>
+                        <property>
                             <name>cloudName</name>
                             <value>${cloudName}</value>
                         </property>

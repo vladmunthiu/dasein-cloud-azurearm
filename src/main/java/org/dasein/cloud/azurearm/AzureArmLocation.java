@@ -18,18 +18,19 @@
 
 package org.dasein.cloud.azurearm;
 
+import org.apache.commons.collections.Closure;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.Predicate;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.InternalException;
-import org.dasein.cloud.azurearm.model.geography.AzureArmLocationModel;
-import org.dasein.cloud.azurearm.model.resource.AzureArmResourceTypeModel;
+import org.dasein.cloud.azurearm.model.ArmProviderModel;
+import org.dasein.cloud.azurearm.model.ArmResourceTypeModel;
 import org.dasein.cloud.dc.*;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 /**
  * Displays the available locations for Microsoft Azure services.
@@ -93,34 +94,45 @@ public class AzureArmLocation implements DataCenterServices{
 
     @Override
     public @Nonnull Iterable<Region> listRegions() throws InternalException, CloudException {
-        HttpUriRequest httpUriRequest = new AzureArmRequestHandler(provider).get("location", null).build();
-        System.out.println(httpUriRequest.containsHeader("Authorization"));
-        System.out.println(httpUriRequest.getHeaders("Authorization")[0].getValue());
-        AzureArmLocationModel result = new AzureArmRequest(provider, httpUriRequest).withJsonProcessor(AzureArmLocationModel.class).execute();
+        HttpUriRequest httpUriRequest = AzureArmRequester.createGetRequest(provider).locations().build();
+        ArmProviderModel result = new AzureArmRequester(provider, httpUriRequest).withJsonProcessor(ArmProviderModel.class).execute();
+
+        ArmResourceTypeModel azureArmResourceTypeModel = (ArmResourceTypeModel)CollectionUtils.find(result.getAzureArmResourceTypes(), new Predicate() {
+            @Override
+            public boolean evaluate(Object object) {
+                return ((ArmResourceTypeModel) object).getResourceType().equalsIgnoreCase("virtualMachines");
+            }
+        });
+
+        if(azureArmResourceTypeModel == null || azureArmResourceTypeModel.getLocations() == null)
+            return Collections.emptyList();
 
         final List<Region> regions = new ArrayList<Region>();
-        for(AzureArmResourceTypeModel resourceType : result.getAzureArmResourceTypes()){
-            if(resourceType.getResourceType().equals("resourceGroups")){
-                for(String location : resourceType.getLocations()){
-                    Region region = new Region();
-                    region.setProviderRegionId(location);
-                    region.setName(location);
-                    region.setActive(true);
-                    region.setAvailable(true);
-
-                    Jurisdiction jurisdiction = Jurisdiction.US;
-                    if(location.contains("Europe"))jurisdiction = Jurisdiction.EU;
-                    else if(location.contains("Asia"))jurisdiction = Jurisdiction.CH;
-                    else if(location.contains("Japan"))jurisdiction = Jurisdiction.JP;
-                    else if(location.contains("Australia"))jurisdiction = Jurisdiction.AU;
-                    else if(location.contains("Brazil"))jurisdiction = Jurisdiction.BR;
-                    region.setJurisdiction(jurisdiction.name());
-
-                    regions.add(region);
-                }
+        CollectionUtils.forAllDo(azureArmResourceTypeModel.getLocations(), new Closure() {
+            @Override
+            public void execute(Object input) {
+                regions.add(regionFromString((String) input));
             }
-        }
+        });
+
         return regions;
+    }
+
+    private Region regionFromString(String locationName) {
+        Region region = new Region();
+        region.setProviderRegionId(locationName);
+        region.setName(locationName);
+        region.setActive(true);
+        region.setAvailable(true);
+
+        Jurisdiction jurisdiction = Jurisdiction.US;
+        if(locationName.contains("Europe"))jurisdiction = Jurisdiction.EU;
+        else if(locationName.contains("Asia"))jurisdiction = Jurisdiction.CH;
+        else if(locationName.contains("Japan"))jurisdiction = Jurisdiction.JP;
+        else if(locationName.contains("Australia"))jurisdiction = Jurisdiction.AU;
+        else if(locationName.contains("Brazil"))jurisdiction = Jurisdiction.BR;
+        region.setJurisdiction(jurisdiction.name());
+        return region;
     }
 
     @Override
