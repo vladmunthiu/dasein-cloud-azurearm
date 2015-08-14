@@ -9,6 +9,7 @@ import org.dasein.cloud.CloudException;
 import org.dasein.cloud.CloudProvider;
 import org.dasein.cloud.ContextRequirements;
 import org.dasein.cloud.InternalException;
+import org.dasein.cloud.azurearm.compute.vm.model.ArmVirtualMachineModel;
 import org.dasein.cloud.util.requester.entities.DaseinEntity;
 import org.dasein.cloud.util.requester.entities.DaseinObjectToJsonEntity;
 import org.dasein.cloud.util.requester.fluent.DaseinRequest;
@@ -27,8 +28,12 @@ import java.util.concurrent.Future;
  * @version 2015.06.1
  */
 public class AzureArmRequester extends DaseinRequest{
-    private static final String LIST_VM_RESOURCES = "%s/subscriptions/%s/providers/Microsoft.Compute/virtualMachine?api-version=2015-06-01";
+    private static final String LIST_VM_RESOURCES = "%s/subscriptions/%s/providers/Microsoft.Compute/virtualMachines?api-version=2015-06-15";
+    private static final String CREATE_VM = "%s/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s?api-version=2015-06-15";
+    private static final String STOP_VM = "%s/stop?api-version=2015-06-15";
     private static final String LIST_LOCATIONS = "%s/subscriptions/%s/providers/Microsoft.Compute?api-version=2015-01-01";
+    private static final String AUTH_TOKEN_ENPOINT = "https://login.windows.net/%s/oauth2/token";
+    private static final String RESOURCE_ENDPOINT = "https://management.core.windows.net/";
 
     public AzureArmRequester(AzureArm provider, HttpUriRequest httpUriRequest) throws CloudException {
         this(provider, provider.getAzureArmClientBuilder(), httpUriRequest);
@@ -49,8 +54,12 @@ public class AzureArmRequester extends DaseinRequest{
             return requestBuilder.setUri(String.format(uri, provider.getContext().getCloud().getEndpoint(), provider.getContext().getAccountNumber()));
         }
 
-        protected RequestBuilder setEntity(DaseinEntity entity) {
+        protected RequestBuilder setRequestEntity(DaseinEntity entity) {
             return requestBuilder.setEntity(entity);
+        }
+
+        protected AzureArmRequester createRequester() throws CloudException {
+            return new AzureArmRequester(provider, requestBuilder.build());
         }
     }
 
@@ -59,11 +68,14 @@ public class AzureArmRequester extends DaseinRequest{
             super(requestBuilder, provider);
         }
 
-        public RequestBuilder locations() {
-            return this.setRequestUri(LIST_LOCATIONS);
+        public AzureArmRequester forLocations() throws CloudException {
+            setRequestUri(LIST_LOCATIONS);
+            return createRequester();
         }
-        public RequestBuilder virtualMachines(){
-            return this.setRequestUri(LIST_VM_RESOURCES);
+
+        public AzureArmRequester forVirtualMachines() throws CloudException {
+            setRequestUri(LIST_VM_RESOURCES);
+            return createRequester();
         }
     }
 
@@ -72,9 +84,29 @@ public class AzureArmRequester extends DaseinRequest{
             super(requestBuilder, provider);
         }
 
-//        public RequestBuilder virtualMachines(WAPVirtualMachineModel virtualMachineModel) {
-//            return setUri(LIST_VM_RESOURCES).setEntity(new DaseinObjectToJsonEntity<WAPVirtualMachineModel>(virtualMachineModel));
-//        }
+        public AzureArmRequester forStopVirtualMachine(String id) throws CloudException {
+            setRequestUri(String.format(STOP_VM, id));
+            return createRequester();
+        }
+    }
+
+    public static class PutRequestUrlBuilder extends RequestUrlBuilder {
+        private PutRequestUrlBuilder(RequestBuilder requestBuilder, AzureArm provider) {
+            super(requestBuilder, provider);
+        }
+
+        public AzureArmRequester forVirtualMachine(ArmVirtualMachineModel armVirtualMachineModel) throws CloudException, InternalException {
+            String uri = getEncodedUri(String.format(CREATE_VM, provider.getContext().getCloud().getEndpoint(), provider.getContext().getAccountNumber(), armVirtualMachineModel.getResourceGroupName(), armVirtualMachineModel.getName()));
+            setRequestUri(uri);
+            setRequestEntity(new DaseinObjectToJsonEntity<ArmVirtualMachineModel>(armVirtualMachineModel));
+            return createRequester();
+        }
+    }
+
+    public static class DeleteRequestUrlBuilder extends RequestUrlBuilder {
+        private DeleteRequestUrlBuilder(RequestBuilder requestBuilder, AzureArm provider){
+            super(requestBuilder, provider);
+        }
     }
 
     public static GetRequestUrlBuilder createGetRequest(AzureArm provider) throws CloudException {
@@ -89,19 +121,16 @@ public class AzureArmRequester extends DaseinRequest{
         return new PostRequestUrlBuilder(requestBuilder, provider);
     }
 
-    public static RequestBuilder createPutRequest(String uri, AzureArm provider, DaseinEntity entity, String...uriParts) throws InternalException, CloudException {
+    public static PutRequestUrlBuilder createPutRequest(AzureArm provider) throws InternalException, CloudException {
         RequestBuilder requestBuilder = RequestBuilder.put();
         addCommonHeaders(provider, requestBuilder);
-        requestBuilder.setUri(getEncodedUri(String.format(uri, provider.getContext().getCloud().getEndpoint(), provider.getContext().getAccountNumber(), uriParts)));
-        requestBuilder.setEntity(entity);
-        return requestBuilder;
+        return new PutRequestUrlBuilder(requestBuilder, provider);
     }
 
-    public static RequestBuilder createDeleteRequest(AzureArm provider, String uri, String...uriParts) throws InternalException, CloudException {
+    public static DeleteRequestUrlBuilder createDeleteRequest(AzureArm provider) throws InternalException, CloudException {
         RequestBuilder requestBuilder = RequestBuilder.delete();
         addCommonHeaders(provider, requestBuilder);
-        requestBuilder.setUri(getEncodedUri(String.format(uri, provider.getContext().getCloud().getEndpoint(), provider.getContext().getAccountNumber(), uriParts)));
-        return requestBuilder;
+        return new DeleteRequestUrlBuilder(requestBuilder, provider);
     }
 
     private static String getEncodedUri(String urlString) throws InternalException {
@@ -122,20 +151,13 @@ public class AzureArmRequester extends DaseinRequest{
     private static String getAuthenticationToken(AzureArm provider) throws CloudException{
         ExecutorService service = Executors.newFixedThreadPool(1);;
         try {
-            String username = "";
-            String password = "";
-            String adTenantId = "";
-            String applicationId = "";
+            String username = (String)provider.getContext().getConfigurationValue("username");
+            String password = (String)provider.getContext().getConfigurationValue("password");
+            String adTenantId = (String)provider.getContext().getConfigurationValue("adTenantId");
+            String applicationId = (String)provider.getContext().getConfigurationValue("applicationId");
 
-            List<ContextRequirements.Field> fields = provider.getContextRequirements().getConfigurableValues();
-            for(ContextRequirements.Field f : fields ) {
-                if(f.name.equals("username"))username = (String)provider.getContext().getConfigurationValue(f);
-                else if(f.name.equals("password"))password = (String)provider.getContext().getConfigurationValue(f);
-                else if(f.name.equals("adTenantId"))adTenantId = (String)provider.getContext().getConfigurationValue(f);
-                else if(f.name.equals("applicationId"))applicationId = (String)provider.getContext().getConfigurationValue(f);
-            }
-            AuthenticationContext context = new AuthenticationContext("https://login.windows.net/" + adTenantId + "/oauth2/token", true, service);
-            Future<AuthenticationResult> future = context.acquireToken("https://management.core.windows.net/", applicationId, username, password, null);
+            AuthenticationContext context = new AuthenticationContext(String.format(AUTH_TOKEN_ENPOINT, adTenantId), true, service);
+            Future<AuthenticationResult> future = context.acquireToken(RESOURCE_ENDPOINT, applicationId, username, password, null);
             AuthenticationResult result = future.get();
             return result.getAccessToken();
         } catch(Exception ex){

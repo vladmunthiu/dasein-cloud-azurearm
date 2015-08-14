@@ -32,6 +32,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.*;
 
+import static org.dasein.cloud.azurearm.AzureArmRequester.createGetRequest;
+
 /**
  * Displays the available locations for Microsoft Azure services.
  * @author Drew Lyall (drew.lyall@imaginary.com)
@@ -94,8 +96,7 @@ public class AzureArmLocation implements DataCenterServices{
 
     @Override
     public @Nonnull Iterable<Region> listRegions() throws InternalException, CloudException {
-        HttpUriRequest httpUriRequest = AzureArmRequester.createGetRequest(provider).locations().build();
-        ArmProviderModel result = new AzureArmRequester(provider, httpUriRequest).withJsonProcessor(ArmProviderModel.class).execute();
+        ArmProviderModel result = createGetRequest(provider).forLocations().withJsonProcessor(ArmProviderModel.class).execute();
 
         ArmResourceTypeModel azureArmResourceTypeModel = (ArmResourceTypeModel)CollectionUtils.find(result.getAzureArmResourceTypes(), new Predicate() {
             @Override
