@@ -21,16 +21,17 @@ package org.dasein.cloud.azurearm;
 import org.apache.http.conn.HttpClientConnectionManager;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.dasein.cloud.AbstractCloud;
 import org.dasein.cloud.CloudException;
 import org.dasein.cloud.ContextRequirements;
-import org.dasein.cloud.ProviderContext;
 import org.dasein.cloud.azurearm.compute.AzureArmComputeService;
+import org.dasein.cloud.azurearm.network.AzureArmNetworkServices;
 import org.dasein.cloud.dc.DataCenterServices;
+import org.dasein.cloud.network.NetworkServices;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -51,6 +52,20 @@ public class AzureArm extends AbstractCloud {
             HttpClientBuilder builder = HttpClientBuilder.create();
             HttpClientConnectionManager ccm = new BasicHttpClientConnectionManager();
             builder.setConnectionManager(ccm);
+            return builder;
+        } catch (Exception e) {
+            throw new CloudException(e.getMessage());
+        }
+    }
+
+    public HttpClientBuilder getAzureClientBuilderWithPooling() throws CloudException {
+        try {
+
+            HttpClientBuilder builder = HttpClientBuilder.create();
+            PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager();
+            connManager.setMaxTotal(200);
+            connManager.setDefaultMaxPerRoute(20);
+            builder.setConnectionManager(connManager);
             return builder;
         } catch (Exception e) {
             throw new CloudException(e.getMessage());
@@ -81,6 +96,9 @@ public class AzureArm extends AbstractCloud {
     public @Nonnull DataCenterServices getDataCenterServices() {
         return new AzureArmLocation(this);
     }
+
+    @Override
+    public @Nullable NetworkServices getNetworkServices() { return new AzureArmNetworkServices(this);  }
 
     @Override
     public @Nonnull String getProviderName() {

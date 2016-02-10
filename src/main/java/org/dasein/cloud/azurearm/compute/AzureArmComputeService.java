@@ -1,6 +1,7 @@
 package org.dasein.cloud.azurearm.compute;
 
 import org.dasein.cloud.azurearm.AzureArm;
+import org.dasein.cloud.azurearm.compute.image.AzureArmImageSupport;
 import org.dasein.cloud.azurearm.compute.vm.AzureArmVirtualMachineSupport;
 import org.dasein.cloud.compute.AbstractComputeServices;
 import org.dasein.cloud.compute.MachineImageSupport;
@@ -21,7 +22,7 @@ public class AzureArmComputeService extends AbstractComputeServices<AzureArm> {
 
     @Override
     public MachineImageSupport getImageSupport() {
-        return null;
+        return new AzureArmImageSupport(provider);
     }
 
     @Override
